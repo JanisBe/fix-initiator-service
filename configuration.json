@@ -1,0 +1,13 @@
+{
+  "ENV1": {
+    "address": "127.0.0.1",
+    "port": 9876,
+    "INITIATOR1": "password",
+    "INITIATOR2": "password"
+  },
+  "ENV2": {
+    "address": "127.0.0.1",
+    "port": 9877,
+    "INITIATOR1": "password"
+  }
+}
