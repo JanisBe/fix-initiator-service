@@ -2,6 +2,7 @@ package com.example.fixclient.service;
 
 import com.example.fixclient.model.FixSessionKey;
 import com.example.fixclient.model.SessionStatus;
+import lombok.RequiredArgsConstructor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
@@ -15,13 +16,11 @@ public class FixSessionManager {
 
     private static final Logger log = LoggerFactory.getLogger(FixSessionManager.class);
 
-    private final ConfigService configService;
     private final FixApplicationImpl application;
     private final DynamicSettingsBuilder settingsBuilder;
     private final Map<FixSessionKey, SocketInitiator> initiators = new ConcurrentHashMap<>();
 
-    public FixSessionManager(ConfigService configService, FixApplicationImpl application, DynamicSettingsBuilder settingsBuilder) {
-        this.configService = configService;
+    public FixSessionManager(FixApplicationImpl application, DynamicSettingsBuilder settingsBuilder) {
         this.application = application;
         this.settingsBuilder = settingsBuilder;
     }

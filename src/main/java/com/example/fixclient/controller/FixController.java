@@ -47,7 +47,9 @@ public class FixController {
     @PostMapping("/send")
     public ResponseEntity<String> sendMessage(@RequestBody String fixMessage) {
         try {
-            Message message = new Message(fixMessage);
+            String sanitizedMessage = sanitizeMessage(fixMessage);
+            Message message = new Message(sanitizedMessage);
+
             String sender = message.getHeader().getString(49); 
             String target = message.getHeader().getString(56);
             
@@ -63,5 +65,34 @@ public class FixController {
         } catch (Exception e) {
             return ResponseEntity.badRequest().body("Invalid Message: " + e.getMessage());
         }
+    }
+
+    private String sanitizeMessage(String rawInput) {
+        String message = rawInput.replace('|', '\u0001');
+
+        if (message.startsWith("\"") && message.endsWith("\"")) {
+            message = message.substring(1, message.length() - 1);
+        }
+        
+        if (!message.endsWith("\u0001")) {
+            message += "\u0001";
+        }
+
+        int checksumIndex = message.lastIndexOf("\u000110=");
+        if (checksumIndex != -1) {
+            message = message.substring(0, checksumIndex + 1);
+        } else if (message.startsWith("10=")) {
+             message = "";
+        }
+
+        int checksum = 0;
+        for (int i = 0; i < message.length(); i++) {
+            checksum += message.charAt(i);
+        }
+        checksum = checksum % 256;
+
+        String checksumStr = String.format("%03d", checksum);
+
+        return message + "10=" + checksumStr + "\u0001";
     }
 }

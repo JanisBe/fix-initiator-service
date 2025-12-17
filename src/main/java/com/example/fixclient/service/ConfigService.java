@@ -37,34 +37,34 @@ public class ConfigService {
     }
 
     public String getAddress(String env) {
-        return getEnv(env).map(e -> e.getConnection().getAddress()).orElse(null);
+        return getEnv(env).map(e -> e.connection().address()).orElse(null);
     }
 
     public int getPort(String env) {
-        return getEnv(env).map(e -> e.getConnection().getPort()).orElse(0);
+        return getEnv(env).map(e -> e.connection().port()).orElse(0);
     }
 
     public String getPassword(String env, String senderCompId) {
         return getEnv(env)
-                .map(EnvironmentConfig::getInitiators)
+                .map(EnvironmentConfig::initiators)
                 .orElse(Collections.emptyList())
                 .stream()
-                .filter(i -> i.getSenderCompId().equals(senderCompId))
+                .filter(i -> i.senderCompId().equals(senderCompId))
                 .findFirst()
-                .map(EnvironmentConfig.InitiatorConfig::getKeystorePassword)
+                .map(EnvironmentConfig.InitiatorConfig::keystorePassword)
                 .orElse(null);
     }
-
+    
     public boolean isValid(String env, String target, String sender) {
         if (!configData.containsKey(env)) return false;
-
+        
         return getEnv(env)
-                .map(EnvironmentConfig::getInitiators)
+                .map(EnvironmentConfig::initiators)
                 .orElse(Collections.emptyList())
                 .stream()
-                .anyMatch(i -> i.getSenderCompId().equals(sender) && i.isEnabled());
+                .anyMatch(i -> i.senderCompId().equals(sender) && i.isEnabled());
     }
-
+    
     private Optional<EnvironmentConfig> getEnv(String env) {
         return Optional.ofNullable(configData.get(env));
     }

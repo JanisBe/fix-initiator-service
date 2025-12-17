@@ -41,13 +41,15 @@ public class FixApplicationImpl implements Application {
     public void toAdmin(Message message, SessionID sessionID) {}
 
     @Override
-    public void fromAdmin(Message message, SessionID sessionID) throws FieldNotFound, IncorrectDataFormat, IncorrectTagValue, RejectLogon {}
+    public void fromAdmin(Message message, SessionID sessionID) {}
 
     @Override
-    public void toApp(Message message, SessionID sessionID) throws DoNotSend {}
+    public void toApp(Message message, SessionID sessionID) {
+        log.info("[INITIATOR][ToApp] {} {}", sessionID, message);
+    }
 
     @Override
-    public void fromApp(Message message, SessionID sessionID) throws FieldNotFound, IncorrectDataFormat, IncorrectTagValue, UnsupportedMessageType {
-        log.info("Received message from {}: {}", sessionID, message);
+    public void fromApp(Message message, SessionID sessionID) {
+        log.info("[INITIATOR][FromApp] {}: {}", sessionID, message);
     }
 }

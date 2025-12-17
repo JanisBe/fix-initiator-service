@@ -1,30 +1,15 @@
 package com.example.fixclient.config;
 
-import lombok.Getter;
-import lombok.Setter;
-
 import java.util.List;
 
-@Setter
-@Getter
-public class EnvironmentConfig {
-    private ConnectionConfig connection;
-    private List<InitiatorConfig> initiators;
+public record EnvironmentConfig(ConnectionConfig connection, List<InitiatorConfig> initiators) {
 
-    @Setter
-    @Getter
-    public static class ConnectionConfig {
-        private String address;
-        private int port;
-
+    public record ConnectionConfig(String address, int port) {
     }
 
-    @Setter
-    @Getter
-    public static class InitiatorConfig {
-        private String senderCompId;
-        private String keystorePassword;
-        private boolean enabled = true;
-
+    public record InitiatorConfig(String senderCompId, String keystorePassword, Boolean enabled) {
+        public boolean isEnabled() {
+            return enabled == null || enabled;
+        }
     }
 }
