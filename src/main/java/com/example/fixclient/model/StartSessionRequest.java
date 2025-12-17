@@ -1,13 +1,4 @@
 package com.example.fixclient.model;
 
-import lombok.Getter;
-import lombok.Setter;
-
-@Setter
-@Getter
-public class StartSessionRequest {
-    private String senderCompId;
-    private String targetCompId;
-    private String environment;
-
+public record StartSessionRequest(String senderCompId, String targetCompId, String environment) {
 }

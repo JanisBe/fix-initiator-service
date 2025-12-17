@@ -25,7 +25,7 @@ public class FixController {
     @PostMapping("/start")
     public ResponseEntity<String> startSession(@RequestBody StartSessionRequest request) {
         try {
-            sessionManager.startSession(request.getSenderCompId(), request.getTargetCompId(), request.getEnvironment());
+            sessionManager.startSession(request.senderCompId(), request.targetCompId(), request.environment());
             return ResponseEntity.ok("Initiator started");
         } catch (Exception e) {
             log.error("Error starting session", e);
@@ -35,7 +35,7 @@ public class FixController {
 
     @PostMapping("/stop")
     public ResponseEntity<String> stopSession(@RequestBody StartSessionRequest request) {
-        sessionManager.stopSession(request.getSenderCompId(), request.getTargetCompId(), request.getEnvironment());
+        sessionManager.stopSession(request.senderCompId(), request.targetCompId(), request.environment());
         return ResponseEntity.ok("Initiator stopped");
     }
 

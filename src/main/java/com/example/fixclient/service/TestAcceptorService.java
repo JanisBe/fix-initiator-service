@@ -1,21 +1,19 @@
 package com.example.fixclient.service;
 
-import lombok.extern.slf4j.Slf4j; // Can't use lombok, careful
+import jakarta.annotation.PostConstruct;
+import jakarta.annotation.PreDestroy;
 import org.jspecify.annotations.NonNull;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 import quickfix.*;
 
-import jakarta.annotation.PostConstruct;
-import jakarta.annotation.PreDestroy;
-import java.io.InputStream;
 import java.util.HashMap;
 import java.util.Map;
 
 @Service
 public class TestAcceptorService {
-    
+
     private static final Logger log = LoggerFactory.getLogger(TestAcceptorService.class);
     private SocketAcceptor acceptor;
 
@@ -33,15 +31,37 @@ public class TestAcceptorService {
             FileStoreFactory storeFactory = new FileStoreFactory(settings);
             LogFactory logFactory = new ScreenLogFactory(settings);
             MessageFactory messageFactory = new DefaultMessageFactory();
-            
+
             Application application = new Application() {
-                @Override public void onCreate(SessionID sessionId) { log.info("Acceptor Session Created: " + sessionId); }
-                @Override public void onLogon(SessionID sessionId) { log.info("Acceptor Session Logon: " + sessionId); }
-                @Override public void onLogout(SessionID sessionId) { log.info("Acceptor Session Logout: " + sessionId); }
-                @Override public void toAdmin(Message message, SessionID sessionId) {}
-                @Override public void fromAdmin(Message message, SessionID sessionId) throws FieldNotFound, IncorrectDataFormat, IncorrectTagValue, RejectLogon {}
-                @Override public void toApp(Message message, SessionID sessionId) throws DoNotSend {}
-                @Override public void fromApp(Message message, SessionID sessionId) throws FieldNotFound, IncorrectDataFormat, IncorrectTagValue, UnsupportedMessageType {
+                @Override
+                public void onCreate(SessionID sessionId) {
+                    log.info("Acceptor Session Created: " + sessionId);
+                }
+
+                @Override
+                public void onLogon(SessionID sessionId) {
+                    log.info("Acceptor Session Logon: " + sessionId);
+                }
+
+                @Override
+                public void onLogout(SessionID sessionId) {
+                    log.info("Acceptor Session Logout: " + sessionId);
+                }
+
+                @Override
+                public void toAdmin(Message message, SessionID sessionId) {
+                }
+
+                @Override
+                public void fromAdmin(Message message, SessionID sessionId) {
+                }
+
+                @Override
+                public void toApp(Message message, SessionID sessionId) {
+                }
+
+                @Override
+                public void fromApp(Message message, SessionID sessionId) {
                     log.info("Acceptor Received: " + message);
                 }
             };
@@ -49,7 +69,7 @@ public class TestAcceptorService {
             acceptor = new SocketAcceptor(application, storeFactory, settings, logFactory, messageFactory);
             acceptor.start();
             log.info("Test Acceptor Started.");
-            
+
         } catch (Exception e) {
             log.error("Failed to start Test Acceptor", e);
         }
@@ -82,7 +102,7 @@ public class TestAcceptorService {
         defaults.put("HeartBtInt", "30");
         defaults.put("UseDataDictionary", "Y");
         defaults.put("DataDictionary", "FIX44.xml");
-        defaults.put("FileStorePath", "acceptor_store");
+        defaults.put("FileStorePath", "store/acceptor");
         defaults.put("FileLogPath", "acceptor_log");
 
         defaults.put("SocketUseSSL", "Y");

@@ -1,2 +1,5 @@
 # Project exclude paths
 /target/
+/store/
+/acceptor_log
+/initiator_log

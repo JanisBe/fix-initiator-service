@@ -1,13 +1,31 @@
 {
   "ENV1": {
-    "address": "127.0.0.1",
-    "port": 9876,
-    "INITIATOR1": "password",
-    "INITIATOR2": "password"
+    "connection": {
+      "address": "127.0.0.1",
+      "port": 9876
+    },
+    "initiators": [
+      {
+        "senderCompId": "INITIATOR1",
+        "keystorePassword": "password",
+        "enabled": true
+      },
+      {
+        "senderCompId": "INITIATOR2",
+        "keystorePassword": "password"
+      }
+    ]
   },
   "ENV2": {
-    "address": "127.0.0.1",
-    "port": 9877,
-    "INITIATOR1": "password"
+    "connection": {
+      "address": "127.0.0.1",
+      "port": 9877
+    },
+    "initiators": [
+      {
+        "senderCompId": "INITIATOR1",
+        "keystorePassword": "password"
+      }
+    ]
   }
 }
