@@ -1,7 +1,9 @@
 package com.example.fixclient.controller;
 
+import com.example.fixclient.model.BatchMessageRequest;
 import com.example.fixclient.model.SessionStatus;
 import com.example.fixclient.model.StartSessionRequest;
+import com.example.fixclient.service.BatchMessageSenderService;
 import com.example.fixclient.service.FixSessionManager;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -17,9 +19,11 @@ public class FixController {
 
     private static final Logger log = LoggerFactory.getLogger(FixController.class);
     private final FixSessionManager sessionManager;
+    private final BatchMessageSenderService batchSender;
 
-    public FixController(FixSessionManager sessionManager) {
+    public FixController(FixSessionManager sessionManager, BatchMessageSenderService batchSender) {
         this.sessionManager = sessionManager;
+        this.batchSender = batchSender;
     }
 
     @PostMapping("/start")
@@ -94,5 +98,27 @@ public class FixController {
         String checksumStr = String.format("%03d", checksum);
 
         return message + "10=" + checksumStr + "\u0001";
+    }
+
+    @PostMapping("/batch/start")
+    public ResponseEntity<String> startBatchMessages(@RequestBody BatchMessageRequest request) {
+        boolean started = batchSender.startSending(
+            request.noOfMessages(),
+            request.interval(),
+            request.senderCompId(),
+            request.fixMessage()
+        );
+        
+        if (started) {
+            return ResponseEntity.ok("Batch sender started");
+        } else {
+            return ResponseEntity.status(409).body("Batch sender already running");
+        }
+    }
+
+    @PostMapping("/batch/stop")
+    public ResponseEntity<String> stopBatchMessages() {
+        batchSender.stopSending();
+        return ResponseEntity.ok("Batch sender stopped");
     }
 }
