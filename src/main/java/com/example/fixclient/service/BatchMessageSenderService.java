@@ -1,12 +1,12 @@
 package com.example.fixclient.service;
 
 import com.example.fixclient.model.BatchMessageRequest;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.messaging.simp.SimpMessageSendingOperations;
 import org.springframework.stereotype.Service;
 import quickfix.Message;
 import quickfix.SessionID;
+import quickfix.field.TargetCompID;
 
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
@@ -16,9 +16,8 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 
 @Service
+@Slf4j
 public class BatchMessageSenderService {
-
-    private static final Logger log = LoggerFactory.getLogger(BatchMessageSenderService.class);
 
     private final ScheduledExecutorService executor = Executors.newSingleThreadScheduledExecutor();
     private final AtomicBoolean running = new AtomicBoolean(false);
@@ -39,8 +38,8 @@ public class BatchMessageSenderService {
      * Starts batch sending of messages at specified interval.
      * Only one batch sender can run at a time.
      *
-     * @param request  a BatchMessageRequest
-     * @param wsSessionId  WebSocket session ID of the user requesting the batch
+     * @param request     a BatchMessageRequest
+     * @param wsSessionId WebSocket session ID of the user requesting the batch
      * @return true if started successfully, false if already running
      */
     public boolean startSending(BatchMessageRequest request, String wsSessionId) {
@@ -60,8 +59,8 @@ public class BatchMessageSenderService {
                 Message message = new Message();
                 message.fromString(sanitizedMessage, null, false);
 
-                String target = message.getHeader().getString(56);
-                SessionID sessionId = new SessionID("FIX.4.4", request.senderCompId(), target);
+                String target = message.getHeader().getString(TargetCompID.FIELD);
+                SessionID sessionId = new SessionID("FIX.4.1", request.senderCompId(), target);
 
                 if (!sessionGateway.doesSessionExist(sessionId)) {
                     log.warn("Session {} does not exist, skipping batch send", sessionId);

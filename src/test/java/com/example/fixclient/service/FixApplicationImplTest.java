@@ -36,7 +36,7 @@ class FixApplicationImplTest {
         MockitoAnnotations.openMocks(this);
         fixApplication = new FixApplicationImpl(certificateService, messagingTemplate);
         fixApplication.setSessionManager(sessionManager);
-        sessionID = new SessionID("FIX.4.4", "INITIATOR", "ACCEPTOR");
+        sessionID = new SessionID("FIX.4.1", "INITIATOR", "ACCEPTOR");
     }
 
     @Test

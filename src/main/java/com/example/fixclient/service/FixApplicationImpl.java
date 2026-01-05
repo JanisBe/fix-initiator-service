@@ -2,8 +2,7 @@ package com.example.fixclient.service;
 
 import com.example.fixclient.model.SessionStatus;
 import lombok.Setter;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.messaging.simp.SimpMessageSendingOperations;
 import org.springframework.stereotype.Service;
 import quickfix.Application;
@@ -17,11 +16,11 @@ import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
 @Service
+@Slf4j
 public class FixApplicationImpl implements Application {
 
-    private static final Logger log = LoggerFactory.getLogger(FixApplicationImpl.class);
     private static final int CERT_FIELD = 9479;
-    
+
     private final CertificateService certificateService;
     private final SimpMessageSendingOperations messagingTemplate;
     private final Map<SessionID, SessionStatus> sessionStatuses = new ConcurrentHashMap<>();

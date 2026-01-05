@@ -3,8 +3,7 @@ package com.example.fixclient.service;
 import com.example.fixclient.model.FixSessionKey;
 import com.example.fixclient.model.SessionStatus;
 import jakarta.annotation.PostConstruct;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import quickfix.*;
 
@@ -13,9 +12,8 @@ import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 
 @Service
+@Slf4j
 public class FixSessionManager {
-
-    private static final Logger log = LoggerFactory.getLogger(FixSessionManager.class);
 
     private final FixApplicationImpl application;
     private final DynamicSettingsBuilder settingsBuilder;
@@ -47,21 +45,21 @@ public class FixSessionManager {
         }
 
         log.info("Starting session for {} (WS Owner: {})", key, wsSessionId);
-        
+
         SessionSettings settings = settingsBuilder.buildSettings(sender, target, env);
-        
+
         FileStoreFactory storeFactory = new FileStoreFactory(settings);
         LogFactory logFactory = new ScreenLogFactory(settings);
         MessageFactory messageFactory = new DefaultMessageFactory();
 
         SocketInitiator initiator = new SocketInitiator(application, storeFactory, settings, logFactory, messageFactory);
         initiator.start();
-        
+
         initiators.put(key, initiator);
 
         // Register owner
         wsToFixSessions.computeIfAbsent(wsSessionId, k -> ConcurrentHashMap.newKeySet()).add(key);
-        fixSessionOwners.put(new SessionID("FIX.4.4", sender, target), wsSessionId);
+        fixSessionOwners.put(new SessionID("FIX.4.1", sender, target), wsSessionId);
     }
 
     public void stopSession(String sender, String target, String env) {
@@ -80,7 +78,7 @@ public class FixSessionManager {
             // but usually we stop by WS ID or we can cleanup lazily. 
             // Better to cleanup strictly.
 
-            SessionID sessionId = new SessionID("FIX.4.4", key.senderCompId(), key.targetCompId());
+            SessionID sessionId = new SessionID("FIX.4.1", key.senderCompId(), key.targetCompId());
             String wsOwner = fixSessionOwners.remove(sessionId);
 
             if (wsOwner != null) {
@@ -114,7 +112,7 @@ public class FixSessionManager {
                     log.info("Stopped session {}", key);
                 }
 
-                SessionID sessionId = new SessionID("FIX.4.4", key.senderCompId(), key.targetCompId());
+                SessionID sessionId = new SessionID("FIX.4.1", key.senderCompId(), key.targetCompId());
                 fixSessionOwners.remove(sessionId);
             }
         }
@@ -135,12 +133,12 @@ public class FixSessionManager {
     }
 
     public SessionStatus getStatus(String sender, String target, String env) {
-        SessionID sessionId = new SessionID("FIX.4.4", sender, target);
-        
+        SessionID sessionId = new SessionID("FIX.4.1", sender, target);
+
         if (!initiators.containsKey(new FixSessionKey(sender, target, env))) {
             return SessionStatus.DISCONNECTED;
         }
-        
+
         return application.getStatus(sessionId);
     }
 

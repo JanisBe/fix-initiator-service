@@ -1,16 +1,15 @@
 package com.example.fixclient.listener;
 
 import com.example.fixclient.service.FixSessionManager;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.event.EventListener;
 import org.springframework.stereotype.Component;
 import org.springframework.web.socket.messaging.SessionDisconnectEvent;
 
 @Component
+@Slf4j
 public class WebSocketEventListener {
 
-    private static final Logger log = LoggerFactory.getLogger(WebSocketEventListener.class);
     private final FixSessionManager sessionManager;
 
     public WebSocketEventListener(FixSessionManager sessionManager) {

@@ -1,7 +1,6 @@
 package com.example.fixclient.service;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
 import java.io.FileInputStream;
@@ -13,9 +12,9 @@ import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
 @Service
+@Slf4j
 public class CertificateService {
 
-    private static final Logger log = LoggerFactory.getLogger(CertificateService.class);
     private final Map<String, String> certCache = new ConcurrentHashMap<>();
 
     /**

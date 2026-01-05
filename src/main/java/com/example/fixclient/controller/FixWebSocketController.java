@@ -45,7 +45,7 @@ public class FixWebSocketController {
             String sender = message.getHeader().getString(49);
             String target = message.getHeader().getString(56);
 
-            SessionID sessionId = new SessionID("FIX.4.4", sender, target);
+            SessionID sessionId = new SessionID("FIX.4.1", sender, target);
             if (!Session.doesSessionExist(sessionId)) {
                 throw new RuntimeException("Session not found (or not logged on)");
             }

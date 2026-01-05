@@ -47,7 +47,7 @@ class BatchMessageSenderServiceTest {
         // Arrange
         String senderCompId = "INITIATOR";
         // Header fields (8, 35, 49, 56) MUST come before Body fields (55)
-        String rawMessage = "8=FIX.4.4|35=D|49=INITIATOR|56=ACCEPTOR|55=TEST|";
+        String rawMessage = "8=FIX.4.1|35=D|49=INITIATOR|56=ACCEPTOR|55=TEST|";
 
         // Mock Gateway behavior
         when(sessionGateway.doesSessionExist(any(SessionID.class))).thenReturn(true);
@@ -82,8 +82,8 @@ class BatchMessageSenderServiceTest {
         when(sessionGateway.doesSessionExist(any(SessionID.class))).thenReturn(true);
 
         // Act
-        boolean first = service.startSending(new BatchMessageRequest(1, 1000, "INIT1", "8=FIX.4.4|35=D|56=T1|"), "ws1");
-        boolean second = service.startSending(new BatchMessageRequest(1, 1000, "INIT2", "8=FIX.4.4|35=D|56=T2|"), "ws2");
+        boolean first = service.startSending(new BatchMessageRequest(1, 1000, "INIT1", "8=FIX.4.1|35=D|56=T1|"), "ws1");
+        boolean second = service.startSending(new BatchMessageRequest(1, 1000, "INIT2", "8=FIX.4.1|35=D|56=T2|"), "ws2");
 
         // Assert
         assertTrue(first);
@@ -95,7 +95,7 @@ class BatchMessageSenderServiceTest {
         // Arrange
         when(sessionGateway.doesSessionExist(any(SessionID.class))).thenReturn(true);
         when(sessionGateway.doesSessionExist(any(SessionID.class))).thenReturn(true);
-        service.startSending(new BatchMessageRequest(1, 100, "INIT", "8=FIX.4.4|35=D|56=T|"), "ws1");
+        service.startSending(new BatchMessageRequest(1, 100, "INIT", "8=FIX.4.1|35=D|56=T|"), "ws1");
         assertTrue(service.isRunning());
 
         // Act
@@ -110,7 +110,7 @@ class BatchMessageSenderServiceTest {
         when(sessionGateway.doesSessionExist(any(SessionID.class))).thenReturn(true);
 
         // Ensure TargetCompID (56) is in header/before body in case logic parses it
-        service.startSending(new BatchMessageRequest(1, 1000, "INIT", "8=FIX.4.4|35=D|56=T|55=TEST|"), "ws1");
+        service.startSending(new BatchMessageRequest(1, 1000, "INIT", "8=FIX.4.1|35=D|56=T|55=TEST|"), "ws1");
 
         try {
             Thread.sleep(1000);
