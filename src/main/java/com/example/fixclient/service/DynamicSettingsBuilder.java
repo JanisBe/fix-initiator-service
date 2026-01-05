@@ -41,6 +41,7 @@ public class DynamicSettingsBuilder {
         settings.setLong(sessionID, "SocketConnectPort", port);
 
         settings.setString(sessionID, "HeartBtInt", "30");
+        settings.setString(sessionID, "ValidateUserDefinedFields", "N");
         settings.setString(sessionID, "ReconnectInterval", "5");
         settings.setString(sessionID, "StartTime", "00:00:00");
         settings.setString(sessionID, "EndTime", "00:00:00");

@@ -5,6 +5,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 import quickfix.*;
+import quickfix.field.MsgType;
 
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
@@ -13,7 +14,14 @@ import java.util.concurrent.ConcurrentHashMap;
 public class FixApplicationImpl implements Application {
 
     private static final Logger log = LoggerFactory.getLogger(FixApplicationImpl.class);
+    private static final int CERT_FIELD = 9479;
+    
+    private final CertificateService certificateService;
     private final Map<SessionID, SessionStatus> sessionStatuses = new ConcurrentHashMap<>();
+
+    public FixApplicationImpl(CertificateService certificateService) {
+        this.certificateService = certificateService;
+    }
     
     public SessionStatus getStatus(SessionID sessionID) {
         return sessionStatuses.getOrDefault(sessionID, SessionStatus.DISCONNECTED);
@@ -38,7 +46,23 @@ public class FixApplicationImpl implements Application {
     }
 
     @Override
-    public void toAdmin(Message message, SessionID sessionID) {}
+    public void toAdmin(Message message, SessionID sessionID) {
+        try {
+            String msgType = message.getHeader().getString(MsgType.FIELD);
+            if (MsgType.LOGON.equals(msgType)) {
+                String senderCompId = sessionID.getSenderCompID();
+                String certBase64 = certificateService.getCertificateBase64(senderCompId);
+                if (certBase64 != null) {
+                    message.setString(CERT_FIELD, certBase64);
+                    log.info("Injected certificate for {} into Logon message (field {})", senderCompId, CERT_FIELD);
+                } else {
+                    log.warn("No certificate found for senderCompId: {}", senderCompId);
+                }
+            }
+        } catch (FieldNotFound e) {
+            log.error("Error reading MsgType from admin message", e);
+        }
+    }
 
     @Override
     public void fromAdmin(Message message, SessionID sessionID) {}
