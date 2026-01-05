@@ -1,6 +1,7 @@
 package com.example.fixclient.service;
 
 import com.example.fixclient.config.EnvironmentConfig;
+import com.example.fixclient.exception.ConfigurationException;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -41,7 +42,7 @@ public class ConfigService {
                 configData = Collections.emptyMap();
             }
         } catch (IOException e) {
-            throw new RuntimeException("Failed to load configuration.json", e);
+            throw new ConfigurationException("Failed to load configuration.json", e);
         }
     }
 

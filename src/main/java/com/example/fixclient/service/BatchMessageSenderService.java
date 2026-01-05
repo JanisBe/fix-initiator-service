@@ -1,6 +1,8 @@
 package com.example.fixclient.service;
 
-import com.example.fixclient.model.BatchMessageRequest;
+import com.example.fixclient.exception.SessionLogonRequiredException;
+import com.example.fixclient.exception.SessionNotFoundException;
+import com.example.fixclient.model.MessageRequestDto;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.messaging.simp.SimpMessageSendingOperations;
 import org.springframework.stereotype.Service;
@@ -31,54 +33,25 @@ public class BatchMessageSenderService {
         this.messagingTemplate = messagingTemplate;
     }
 
-    // For backward compatibility or testing if needed, though strictly we should use constructor injection now.
-    // We'll rely on Spring creating the bean with constructor injection.
-
     /**
      * Starts batch sending of messages at specified interval.
      * Only one batch sender can run at a time.
      *
-     * @param request     a BatchMessageRequest
+     * @param request     a MessageRequestDto
      * @param wsSessionId WebSocket session ID of the user requesting the batch
      * @return true if started successfully, false if already running
      */
-    public boolean startSending(BatchMessageRequest request, String wsSessionId) {
+    public boolean startSending(MessageRequestDto request, String wsSessionId) {
         if (!running.compareAndSet(false, true)) {
             log.warn("Batch sender already running, cannot start another");
             return false;
         }
 
-        log.info("Starting batch sender: {} messages every {}ms for session {}", request.noOfMessages(), request.interval(), request.senderCompId());
-
-        String sanitizedMessage = sanitizeMessage(request.fixMessage());
+        log.info("Starting batch sender: {} repeats every {}ms for session {}", request.repeatCount(), request.interval(), request.senderCompId());
 
         Runnable sendTask = () -> {
             try {
-                // Use non-validating parsing to allow inputs without BodyLength/Checksum
-                // The Session.sendToTarget will recalculate them correctly.
-                Message message = new Message();
-                message.fromString(sanitizedMessage, null, false);
-
-                String target = message.getHeader().getString(TargetCompID.FIELD);
-                SessionID sessionId = new SessionID("FIX.4.1", request.senderCompId(), target);
-
-                if (!sessionGateway.doesSessionExist(sessionId)) {
-                    log.warn("Session {} does not exist, skipping batch send", sessionId);
-                    return;
-                }
-
-                for (int i = 0; i < request.noOfMessages(); i++) {
-                    Message msgCopy = new Message();
-                    msgCopy.fromString(sanitizedMessage, null, false);
-                    boolean sent = sessionGateway.sendToTarget(msgCopy, sessionId);
-                    if (sent) {
-                        log.debug("Batch message {} sent successfully", i + 1);
-                        messagingTemplate.convertAndSendToUser(wsSessionId, "/topic/progress", i + 1);
-                    } else {
-                        log.warn("Failed to send batch message {}", i + 1);
-                    }
-                }
-                log.info("Batch of {} messages sent to session {}", request.noOfMessages(), sessionId);
+                processMessageBatch(request, wsSessionId, false);
             } catch (Exception e) {
                 log.error("Error sending batch messages", e);
             }
@@ -88,6 +61,62 @@ public class BatchMessageSenderService {
         currentTask.set(future);
 
         return true;
+    }
+
+    /**
+     * Sends the messages once immediately.
+     *
+     * @param request     a MessageRequestDto
+     * @param wsSessionId WebSocket session ID
+     */
+    public void sendOnce(MessageRequestDto request, String wsSessionId) {
+        log.info("Sending messages once for session {}", request.senderCompId());
+        processMessageBatch(request, wsSessionId, true);
+    }
+
+    private void processMessageBatch(MessageRequestDto request, String wsSessionId, boolean throwOnError) {
+        for (int i = 0; i < request.repeatCount(); i++) {
+            int messageIndex = 0;
+            for (String rawMsg : request.fixMessages()) {
+                messageIndex++;
+                try {
+                    String sanitizedMessage = sanitizeMessage(rawMsg);
+
+                    // Use non-validating parsing
+                    Message message = new Message();
+                    message.fromString(sanitizedMessage, null, false);
+
+                    String target = message.getHeader().getString(TargetCompID.FIELD);
+                    SessionID sessionId = new SessionID("FIX.4.1", request.senderCompId(), target);
+
+                    if (!sessionGateway.doesSessionExist(sessionId)) {
+                        String err = String.format("Session %s does not exist", sessionId);
+                        log.warn(err);
+                        if (throwOnError) throw new SessionNotFoundException(err);
+                        continue;
+                    }
+
+                    Message msgToSend = new Message();
+                    msgToSend.fromString(sanitizedMessage, null, false);
+
+                    boolean sent = sessionGateway.sendToTarget(msgToSend, sessionId);
+                    if (sent) {
+                        log.debug("Message {}/{} (iteration {}) sent successfully", messageIndex, request.fixMessages().size(), i + 1);
+                        messagingTemplate.convertAndSendToUser(wsSessionId, "/topic/progress", "Sent batch " + (i + 1));
+                    } else {
+                        String err = "Failed to send message (Logon required)";
+                        log.warn(err);
+                        if (throwOnError) throw new SessionLogonRequiredException(err);
+                    }
+                } catch (RuntimeException e) {
+                    // Rethrow custom runtime exceptions
+                    throw e;
+                } catch (Exception e) {
+                    log.error("Error processing message", e);
+                    if (throwOnError) throw new RuntimeException(e);
+                }
+            }
+        }
     }
 
     /**

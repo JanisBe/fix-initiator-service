@@ -3,7 +3,6 @@ package com.example.fixclient.service;
 import jakarta.annotation.PostConstruct;
 import jakarta.annotation.PreDestroy;
 import lombok.extern.slf4j.Slf4j;
-import org.jspecify.annotations.NonNull;
 import org.springframework.stereotype.Service;
 import quickfix.*;
 
@@ -16,7 +15,7 @@ public class TestAcceptorService {
 
     private SocketAcceptor acceptor;
 
-    private static @NonNull SessionSettings getSessionSettings() {
+    private static SessionSettings getSessionSettings() {
         SessionSettings settings = new SessionSettings();
 
         // Default configuration for the acceptor
@@ -34,7 +33,7 @@ public class TestAcceptorService {
         return settings;
     }
 
-    private static @NonNull Map<Object, Object> getObjectObjectMap() {
+    private static Map<Object, Object> getObjectObjectMap() {
         Map<Object, Object> defaults = new HashMap<>();
         defaults.put("ConnectionType", "acceptor");
         defaults.put("SocketAcceptPort", "9876");
