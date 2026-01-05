@@ -5,5 +5,6 @@ public enum SessionStatus {
     DISCONNECTED,
     CONNECTING,
     ERROR,
+    LOGON_REJECTED,
     UNKNOWN
 }

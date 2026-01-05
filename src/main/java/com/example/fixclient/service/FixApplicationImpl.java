@@ -1,11 +1,16 @@
 package com.example.fixclient.service;
 
 import com.example.fixclient.model.SessionStatus;
+import lombok.Setter;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
-import quickfix.*;
+import quickfix.Application;
+import quickfix.FieldNotFound;
+import quickfix.Message;
+import quickfix.SessionID;
 import quickfix.field.MsgType;
+import quickfix.field.Text;
 
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
@@ -19,10 +24,19 @@ public class FixApplicationImpl implements Application {
     private final CertificateService certificateService;
     private final Map<SessionID, SessionStatus> sessionStatuses = new ConcurrentHashMap<>();
 
+    /**
+     * -- SETTER --
+     * Setter for FixSessionManager to avoid circular dependency.
+     * Called by FixSessionManager after construction.
+     */
+    // Set via setter to avoid circular dependency
+    @Setter
+    private FixSessionManager sessionManager;
+
     public FixApplicationImpl(CertificateService certificateService) {
         this.certificateService = certificateService;
     }
-    
+
     public SessionStatus getStatus(SessionID sessionID) {
         return sessionStatuses.getOrDefault(sessionID, SessionStatus.DISCONNECTED);
     }
@@ -42,7 +56,10 @@ public class FixApplicationImpl implements Application {
     @Override
     public void onLogout(SessionID sessionID) {
         log.info("Logout: {}", sessionID);
-        sessionStatuses.put(sessionID, SessionStatus.DISCONNECTED);
+        // Don't overwrite LOGON_REJECTED status
+        if (sessionStatuses.get(sessionID) != SessionStatus.LOGON_REJECTED) {
+            sessionStatuses.put(sessionID, SessionStatus.DISCONNECTED);
+        }
     }
 
     @Override
@@ -65,7 +82,57 @@ public class FixApplicationImpl implements Application {
     }
 
     @Override
-    public void fromAdmin(Message message, SessionID sessionID) {}
+    public void fromAdmin(Message message, SessionID sessionID) {
+        try {
+            String msgType = message.getHeader().getString(MsgType.FIELD);
+            if (MsgType.LOGOUT.equals(msgType)) {
+                handleLogoutMessage(message, sessionID);
+            }
+        } catch (FieldNotFound e) {
+            log.error("Error reading MsgType from admin message", e);
+        }
+    }
+
+    /**
+     * Handles incoming Logout message from acceptor.
+     * If session was never fully connected (logon rejected), stops the initiator.
+     */
+    void handleLogoutMessage(Message message, SessionID sessionID) {
+        String reason = "No reason provided";
+        try {
+            if (message.isSetField(Text.FIELD)) {
+                reason = message.getString(Text.FIELD);
+            }
+        } catch (FieldNotFound e) {
+            // Ignore, use default reason
+        }
+
+        log.warn("Received Logout from acceptor for session {}: {}", sessionID, reason);
+
+        SessionStatus currentStatus = sessionStatuses.get(sessionID);
+        // If session was never connected, this is a logon rejection
+        if (currentStatus != SessionStatus.CONNECTED) {
+            log.info("Logon rejected by acceptor - stopping initiator to prevent reconnection");
+            sessionStatuses.put(sessionID, SessionStatus.LOGON_REJECTED);
+
+            if (sessionManager != null) {
+                // Stop in a separate thread to avoid blocking QuickFIX/J callback
+                String sender = sessionID.getSenderCompID();
+                String target = sessionID.getTargetCompID();
+                new Thread(() -> {
+                    try {
+                        // Small delay to let QuickFIX/J finish processing
+                        Thread.sleep(100);
+                        sessionManager.stopSessionByIds(sender, target);
+                    } catch (InterruptedException e) {
+                        Thread.currentThread().interrupt();
+                    }
+                }, "initiator-stop-" + sender).start();
+            } else {
+                log.warn("SessionManager not set - cannot stop initiator automatically");
+            }
+        }
+    }
 
     @Override
     public void toApp(Message message, SessionID sessionID) {

@@ -18,6 +18,15 @@ public class ConfigService {
 
     private Map<String, EnvironmentConfig> configData;
 
+    // Default constructor for Spring
+    public ConfigService() {
+    }
+
+    // Check-visible for testing
+    ConfigService(Map<String, EnvironmentConfig> configData) {
+        this.configData = configData;
+    }
+
     @PostConstruct
     public void loadConfig() {
         ObjectMapper mapper = new ObjectMapper();

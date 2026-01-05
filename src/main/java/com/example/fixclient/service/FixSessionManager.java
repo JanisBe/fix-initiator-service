@@ -2,7 +2,7 @@ package com.example.fixclient.service;
 
 import com.example.fixclient.model.FixSessionKey;
 import com.example.fixclient.model.SessionStatus;
-import lombok.RequiredArgsConstructor;
+import jakarta.annotation.PostConstruct;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
@@ -23,6 +23,12 @@ public class FixSessionManager {
     public FixSessionManager(FixApplicationImpl application, DynamicSettingsBuilder settingsBuilder) {
         this.application = application;
         this.settingsBuilder = settingsBuilder;
+    }
+
+    @PostConstruct
+    public void init() {
+        // Wire callback to avoid circular constructor dependency
+        application.setSessionManager(this);
     }
 
     public void startSession(String sender, String target, String env) throws ConfigError {
@@ -53,6 +59,22 @@ public class FixSessionManager {
             initiator.stop();
             log.info("Stopped session for {}", key);
         }
+    }
+
+    /**
+     * Stops all sessions matching the given sender and target (any environment).
+     * Used by FixApplicationImpl when logon is rejected.
+     */
+    public void stopSessionByIds(String sender, String target) {
+        initiators.entrySet().removeIf(entry -> {
+            FixSessionKey key = entry.getKey();
+            if (key.senderCompId().equals(sender) && key.targetCompId().equals(target)) {
+                entry.getValue().stop();
+                log.info("Stopped session {} due to logon rejection", key);
+                return true;
+            }
+            return false;
+        });
     }
 
     public SessionStatus getStatus(String sender, String target, String env) {

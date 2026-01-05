@@ -4,7 +4,6 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 import quickfix.Message;
-import quickfix.Session;
 import quickfix.SessionID;
 
 import java.util.concurrent.Executors;
@@ -22,6 +21,15 @@ public class BatchMessageSenderService {
     private final ScheduledExecutorService executor = Executors.newSingleThreadScheduledExecutor();
     private final AtomicBoolean running = new AtomicBoolean(false);
     private final AtomicReference<ScheduledFuture<?>> currentTask = new AtomicReference<>();
+
+    private final FixSessionGateway sessionGateway;
+
+    public BatchMessageSenderService(FixSessionGateway sessionGateway) {
+        this.sessionGateway = sessionGateway;
+    }
+
+    // For backward compatibility or testing if needed, though strictly we should use constructor injection now.
+    // We'll rely on Spring creating the bean with constructor injection.
 
     /**
      * Starts batch sending of messages at specified interval.
@@ -45,18 +53,23 @@ public class BatchMessageSenderService {
 
         Runnable sendTask = () -> {
             try {
-                Message message = new Message(sanitizedMessage);
+                // Use non-validating parsing to allow inputs without BodyLength/Checksum
+                // The Session.sendToTarget will recalculate them correctly.
+                Message message = new Message();
+                message.fromString(sanitizedMessage, null, false);
+                
                 String target = message.getHeader().getString(56);
                 SessionID sessionId = new SessionID("FIX.4.4", senderCompId, target);
 
-                if (!Session.doesSessionExist(sessionId)) {
+                if (!sessionGateway.doesSessionExist(sessionId)) {
                     log.warn("Session {} does not exist, skipping batch send", sessionId);
                     return;
                 }
 
                 for (int i = 0; i < noOfMessages; i++) {
-                    Message msgCopy = new Message(sanitizedMessage);
-                    boolean sent = Session.sendToTarget(msgCopy, sessionId);
+                    Message msgCopy = new Message();
+                    msgCopy.fromString(sanitizedMessage, null, false);
+                    boolean sent = sessionGateway.sendToTarget(msgCopy, sessionId);
                     if (sent) {
                         log.debug("Batch message {} sent successfully", i + 1);
                     } else {
