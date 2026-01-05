@@ -1,7 +1,9 @@
 package com.example.fixclient.service;
 
+import com.example.fixclient.model.BatchMessageRequest;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.messaging.simp.SimpMessageSendingOperations;
 import org.springframework.stereotype.Service;
 import quickfix.Message;
 import quickfix.SessionID;
@@ -23,9 +25,11 @@ public class BatchMessageSenderService {
     private final AtomicReference<ScheduledFuture<?>> currentTask = new AtomicReference<>();
 
     private final FixSessionGateway sessionGateway;
+    private final SimpMessageSendingOperations messagingTemplate;
 
-    public BatchMessageSenderService(FixSessionGateway sessionGateway) {
+    public BatchMessageSenderService(FixSessionGateway sessionGateway, SimpMessageSendingOperations messagingTemplate) {
         this.sessionGateway = sessionGateway;
+        this.messagingTemplate = messagingTemplate;
     }
 
     // For backward compatibility or testing if needed, though strictly we should use constructor injection now.
@@ -35,21 +39,19 @@ public class BatchMessageSenderService {
      * Starts batch sending of messages at specified interval.
      * Only one batch sender can run at a time.
      *
-     * @param noOfMessages number of messages to send per interval
-     * @param intervalMs   interval between batches in milliseconds
-     * @param senderCompId sender comp ID to identify the session
-     * @param fixMessage   FIX message template in pipe-delimited format
+     * @param request  a BatchMessageRequest
+     * @param wsSessionId  WebSocket session ID of the user requesting the batch
      * @return true if started successfully, false if already running
      */
-    public boolean startSending(int noOfMessages, long intervalMs, String senderCompId, String fixMessage) {
+    public boolean startSending(BatchMessageRequest request, String wsSessionId) {
         if (!running.compareAndSet(false, true)) {
             log.warn("Batch sender already running, cannot start another");
             return false;
         }
 
-        log.info("Starting batch sender: {} messages every {}ms for session {}", noOfMessages, intervalMs, senderCompId);
+        log.info("Starting batch sender: {} messages every {}ms for session {}", request.noOfMessages(), request.interval(), request.senderCompId());
 
-        String sanitizedMessage = sanitizeMessage(fixMessage);
+        String sanitizedMessage = sanitizeMessage(request.fixMessage());
 
         Runnable sendTask = () -> {
             try {
@@ -57,32 +59,33 @@ public class BatchMessageSenderService {
                 // The Session.sendToTarget will recalculate them correctly.
                 Message message = new Message();
                 message.fromString(sanitizedMessage, null, false);
-                
+
                 String target = message.getHeader().getString(56);
-                SessionID sessionId = new SessionID("FIX.4.4", senderCompId, target);
+                SessionID sessionId = new SessionID("FIX.4.4", request.senderCompId(), target);
 
                 if (!sessionGateway.doesSessionExist(sessionId)) {
                     log.warn("Session {} does not exist, skipping batch send", sessionId);
                     return;
                 }
 
-                for (int i = 0; i < noOfMessages; i++) {
+                for (int i = 0; i < request.noOfMessages(); i++) {
                     Message msgCopy = new Message();
                     msgCopy.fromString(sanitizedMessage, null, false);
                     boolean sent = sessionGateway.sendToTarget(msgCopy, sessionId);
                     if (sent) {
                         log.debug("Batch message {} sent successfully", i + 1);
+                        messagingTemplate.convertAndSendToUser(wsSessionId, "/topic/progress", i + 1);
                     } else {
                         log.warn("Failed to send batch message {}", i + 1);
                     }
                 }
-                log.info("Batch of {} messages sent to session {}", noOfMessages, sessionId);
+                log.info("Batch of {} messages sent to session {}", request.noOfMessages(), sessionId);
             } catch (Exception e) {
                 log.error("Error sending batch messages", e);
             }
         };
 
-        ScheduledFuture<?> future = executor.scheduleAtFixedRate(sendTask, 0, intervalMs, TimeUnit.MILLISECONDS);
+        ScheduledFuture<?> future = executor.scheduleAtFixedRate(sendTask, 0, request.interval(), TimeUnit.MILLISECONDS);
         currentTask.set(future);
 
         return true;

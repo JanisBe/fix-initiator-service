@@ -4,6 +4,7 @@ import com.example.fixclient.model.SessionStatus;
 import lombok.Setter;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.messaging.simp.SimpMessageSendingOperations;
 import org.springframework.stereotype.Service;
 import quickfix.Application;
 import quickfix.FieldNotFound;
@@ -22,19 +23,15 @@ public class FixApplicationImpl implements Application {
     private static final int CERT_FIELD = 9479;
     
     private final CertificateService certificateService;
+    private final SimpMessageSendingOperations messagingTemplate;
     private final Map<SessionID, SessionStatus> sessionStatuses = new ConcurrentHashMap<>();
 
-    /**
-     * -- SETTER --
-     * Setter for FixSessionManager to avoid circular dependency.
-     * Called by FixSessionManager after construction.
-     */
-    // Set via setter to avoid circular dependency
     @Setter
     private FixSessionManager sessionManager;
 
-    public FixApplicationImpl(CertificateService certificateService) {
+    public FixApplicationImpl(CertificateService certificateService, SimpMessageSendingOperations messagingTemplate) {
         this.certificateService = certificateService;
+        this.messagingTemplate = messagingTemplate;
     }
 
     public SessionStatus getStatus(SessionID sessionID) {
@@ -142,5 +139,13 @@ public class FixApplicationImpl implements Application {
     @Override
     public void fromApp(Message message, SessionID sessionID) {
         log.info("[INITIATOR][FromApp] {}: {}", sessionID, message);
+
+        if (sessionManager != null) {
+            String wsSessionId = sessionManager.getOwner(sessionID);
+            if (wsSessionId != null) {
+                messagingTemplate.convertAndSendToUser(wsSessionId, "/topic/fixMessages", message.toString());
+            }
+        }
     }
+
 }

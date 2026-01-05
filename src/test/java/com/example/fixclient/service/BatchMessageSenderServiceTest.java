@@ -1,10 +1,12 @@
 package com.example.fixclient.service;
 
+import com.example.fixclient.model.BatchMessageRequest;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
+import org.springframework.messaging.simp.SimpMessageSendingOperations;
 import quickfix.Message;
 import quickfix.SessionID;
 import quickfix.SessionNotFound;
@@ -21,12 +23,15 @@ class BatchMessageSenderServiceTest {
     @Mock
     private FixSessionGateway sessionGateway;
 
+    @Mock
+    private SimpMessageSendingOperations messagingTemplate;
+
     private AutoCloseable mocks;
 
     @BeforeEach
     void setUp() {
         mocks = MockitoAnnotations.openMocks(this);
-        service = new BatchMessageSenderService(sessionGateway);
+        service = new BatchMessageSenderService(sessionGateway, messagingTemplate);
     }
 
     @AfterEach
@@ -49,7 +54,7 @@ class BatchMessageSenderServiceTest {
         when(sessionGateway.sendToTarget(any(Message.class), any(SessionID.class))).thenReturn(true);
 
         // Act
-        boolean started = service.startSending(2, 50, senderCompId, rawMessage);
+        boolean started = service.startSending(new BatchMessageRequest(2, 50, senderCompId, rawMessage), "ws-session-id");
 
         // Assert
         assertTrue(started);
@@ -65,6 +70,7 @@ class BatchMessageSenderServiceTest {
         // Verify sendToTarget called
         try {
             verify(sessionGateway, atLeast(2)).sendToTarget(any(Message.class), any(SessionID.class));
+            verify(messagingTemplate, atLeast(2)).convertAndSendToUser(eq("ws-session-id"), eq("/topic/progress"), any());
         } catch (SessionNotFound e) {
             fail("Should not throw exception");
         }
@@ -76,8 +82,8 @@ class BatchMessageSenderServiceTest {
         when(sessionGateway.doesSessionExist(any(SessionID.class))).thenReturn(true);
 
         // Act
-        boolean first = service.startSending(1, 1000, "INIT1", "8=FIX.4.4|35=D|56=T1|");
-        boolean second = service.startSending(1, 1000, "INIT2", "8=FIX.4.4|35=D|56=T2|");
+        boolean first = service.startSending(new BatchMessageRequest(1, 1000, "INIT1", "8=FIX.4.4|35=D|56=T1|"), "ws1");
+        boolean second = service.startSending(new BatchMessageRequest(1, 1000, "INIT2", "8=FIX.4.4|35=D|56=T2|"), "ws2");
 
         // Assert
         assertTrue(first);
@@ -88,7 +94,8 @@ class BatchMessageSenderServiceTest {
     void testStopSending() {
         // Arrange
         when(sessionGateway.doesSessionExist(any(SessionID.class))).thenReturn(true);
-        service.startSending(1, 100, "INIT", "8=FIX.4.4|35=D|56=T|");
+        when(sessionGateway.doesSessionExist(any(SessionID.class))).thenReturn(true);
+        service.startSending(new BatchMessageRequest(1, 100, "INIT", "8=FIX.4.4|35=D|56=T|"), "ws1");
         assertTrue(service.isRunning());
 
         // Act
@@ -103,7 +110,7 @@ class BatchMessageSenderServiceTest {
         when(sessionGateway.doesSessionExist(any(SessionID.class))).thenReturn(true);
 
         // Ensure TargetCompID (56) is in header/before body in case logic parses it
-        service.startSending(1, 1000, "INIT", "8=FIX.4.4|35=D|56=T|55=TEST|");
+        service.startSending(new BatchMessageRequest(1, 1000, "INIT", "8=FIX.4.4|35=D|56=T|55=TEST|"), "ws1");
 
         try {
             Thread.sleep(1000);

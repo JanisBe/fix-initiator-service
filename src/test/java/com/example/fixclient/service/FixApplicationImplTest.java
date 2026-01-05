@@ -5,6 +5,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
+import org.springframework.messaging.simp.SimpMessageSendingOperations;
 import quickfix.FieldNotFound;
 import quickfix.Message;
 import quickfix.SessionID;
@@ -24,13 +25,16 @@ class FixApplicationImplTest {
     @Mock
     private FixSessionManager sessionManager;
 
+    @Mock
+    private SimpMessageSendingOperations messagingTemplate;
+
     private FixApplicationImpl fixApplication;
     private SessionID sessionID;
 
     @BeforeEach
     void setUp() {
         MockitoAnnotations.openMocks(this);
-        fixApplication = new FixApplicationImpl(certificateService);
+        fixApplication = new FixApplicationImpl(certificateService, messagingTemplate);
         fixApplication.setSessionManager(sessionManager);
         sessionID = new SessionID("FIX.4.4", "INITIATOR", "ACCEPTOR");
     }
