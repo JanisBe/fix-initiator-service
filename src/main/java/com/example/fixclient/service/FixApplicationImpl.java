@@ -12,6 +12,7 @@ import quickfix.SessionID;
 import quickfix.field.MsgType;
 import quickfix.field.Text;
 
+import java.time.LocalDateTime;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
@@ -133,6 +134,17 @@ public class FixApplicationImpl implements Application {
     @Override
     public void toApp(Message message, SessionID sessionID) {
         log.info("[INITIATOR][ToApp] {} {}", sessionID, message);
+
+        // Add Timestamp (9481)
+        message.setString(9481, LocalDateTime.now().toString());
+
+        // Add Signature (9489)
+        String signature = certificateService.signMessage(message);
+        if (signature != null) {
+            message.setString(9489, signature);
+        } else {
+            log.warn("Failed to sign message for session {}", sessionID);
+        }
     }
 
     @Override

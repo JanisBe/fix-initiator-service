@@ -65,7 +65,8 @@ class FixApplicationImplTest {
         fixApplication.toAdmin(message, sessionID);
 
         // Assert
-        // Field 9479 should not be set. QuickFIX/J Message throws FieldNotFound or returns false for isSetField
+        // Field 9479 should not be set. QuickFIX/J Message throws FieldNotFound or
+        // returns false for isSetField
         assertFalse(message.isSetField(9479));
         verify(certificateService).getCertificateBase64("INITIATOR");
     }
@@ -118,9 +119,10 @@ class FixApplicationImplTest {
         fixApplication.fromAdmin(message, sessionID);
 
         // Assert
-        // Should NOT change to LOGON_REJECTED, but remain CONNECTED (until onLogout callback actually handles disconnection logic if needed, 
+        // Should NOT change to LOGON_REJECTED, but remain CONNECTED (until onLogout
+        // callback actually handles disconnection logic if needed,
         // but fromAdmin logic specifically shouldn't trigger the stop)
-        // Wait... fromAdmin doesn't change status to disconnected, onLogout does. 
+        // Wait... fromAdmin doesn't change status to disconnected, onLogout does.
         // But fromAdmin logic for REJECTION checks if (currentStatus != CONNECTED).
         // If it IS connected, it skips the stop logic.
 
@@ -151,11 +153,32 @@ class FixApplicationImplTest {
 
         assertEquals(SessionStatus.LOGON_REJECTED, fixApplication.getStatus(sessionID));
 
-        // Act 
+        // Act
         // QuickFIX/J will call onLogout after fromAdmin/socket disconnect
         fixApplication.onLogout(sessionID);
 
         // Assert
         assertEquals(SessionStatus.LOGON_REJECTED, fixApplication.getStatus(sessionID));
+    }
+
+    @Test
+    void testToApp_AddsTimestampAndSignature() throws FieldNotFound {
+        // Arrange
+        Message message = new Message();
+        when(certificateService.signMessage(message)).thenReturn("testSignature");
+
+        // Act
+        fixApplication.toApp(message, sessionID);
+
+        // Assert
+        // Check Timestamp (9481)
+        quickfix.StringField timestampField = new quickfix.StringField(9481);
+        message.getField(timestampField);
+        // Basic check that it's not empty, hard to check exact time
+        assertFalse(timestampField.getValue().isEmpty());
+
+        // Check Signature (9489)
+        assertEquals("testSignature", message.getString(9489));
+        verify(certificateService).signMessage(message);
     }
 }

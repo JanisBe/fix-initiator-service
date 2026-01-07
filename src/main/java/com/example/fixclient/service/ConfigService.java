@@ -64,17 +64,28 @@ public class ConfigService {
                 .map(EnvironmentConfig.InitiatorConfig::keystorePassword)
                 .orElse(null);
     }
-    
+
+    public String findPassword(String senderCompId) {
+        return configData.values().stream()
+                .map(EnvironmentConfig::initiators)
+                .flatMap(java.util.List::stream)
+                .filter(i -> i.senderCompId().equals(senderCompId))
+                .findFirst()
+                .map(EnvironmentConfig.InitiatorConfig::keystorePassword)
+                .orElse(null);
+    }
+
     public boolean isValid(String env, String target, String sender) {
-        if (!configData.containsKey(env)) return false;
-        
+        if (!configData.containsKey(env))
+            return false;
+
         return getEnv(env)
                 .map(EnvironmentConfig::initiators)
                 .orElse(Collections.emptyList())
                 .stream()
                 .anyMatch(i -> i.senderCompId().equals(sender) && i.isEnabled());
     }
-    
+
     private Optional<EnvironmentConfig> getEnv(String env) {
         return Optional.ofNullable(configData.get(env));
     }

@@ -1,6 +1,5 @@
 package com.example.fixclient.service;
 
-
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import quickfix.SessionID;
@@ -23,12 +22,17 @@ public class DynamicSettingsBuilder {
             // Maybe log WARN but proceed, or throw.
         }
 
-        SessionSettings settings = new SessionSettings();
+        SessionSettings settings;
+        try {
+            settings = new SessionSettings("src/main/resources/initiator.cfg");
+        } catch (quickfix.ConfigError e) {
+            log.error("Failed to load initiator.cfg", e);
+            throw new RuntimeException(e);
+        }
+
         SessionID sessionID = new SessionID("FIX.4.1", sender, target);
 
         // Basic Connection Info
-        settings.setString(sessionID, "ConnectionType", "initiator");
-        settings.setString(sessionID, "BeginString", "FIX.4.1");
         settings.setString(sessionID, "SenderCompID", sender);
         settings.setString(sessionID, "TargetCompID", target);
 
@@ -37,16 +41,6 @@ public class DynamicSettingsBuilder {
 
         settings.setString(sessionID, "SocketConnectHost", address != null ? address : "127.0.0.1");
         settings.setLong(sessionID, "SocketConnectPort", port);
-
-        settings.setString(sessionID, "HeartBtInt", "30");
-        settings.setString(sessionID, "ValidateUserDefinedFields", "N");
-        settings.setString(sessionID, "ReconnectInterval", "5");
-        settings.setString(sessionID, "StartTime", "00:00:00");
-        settings.setString(sessionID, "EndTime", "00:00:00");
-        settings.setString(sessionID, "UseDataDictionary", "Y");
-        settings.setString(sessionID, "DataDictionary", "FIX41.xml");
-        settings.setString(sessionID, "FileStorePath", "store/initiator");
-        settings.setString(sessionID, "FileLogPath", "acceptor_log");
 
         String password = configService.getPassword(envName, sender);
         String certPath = "certs/" + sender + ".p12";
