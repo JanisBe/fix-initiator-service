@@ -11,6 +11,9 @@ import quickfix.Message;
 import quickfix.SessionID;
 import quickfix.field.MsgType;
 import quickfix.field.Text;
+import quickfix.Session;
+
+import java.io.IOException;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -180,5 +183,32 @@ class FixApplicationImplTest {
         // Check Signature (9489)
         assertEquals("testSignature", message.getString(9489));
         verify(certificateService).signMessage(message);
+    }
+
+    @Test
+    void testFromAdmin_HandlesSeqNumMismatch() throws FieldNotFound, IOException {
+        // Arrange
+        Message message = new Message();
+        message.getHeader().setString(MsgType.FIELD, MsgType.LOGOUT);
+        String mismatchReason = "You have tried to log on with a sequence number [1] which is less than the one we expected [3]. You are being logged out.";
+        message.setString(Text.FIELD, mismatchReason);
+
+        // Use a spy to mock getSession()
+        FixApplicationImpl spyApp = spy(fixApplication);
+        Session mockSession = mock(Session.class);
+        doReturn(mockSession).when(spyApp).getSession(sessionID);
+
+        // Act
+        spyApp.fromAdmin(message, sessionID);
+
+        // Assert
+        // Check session state transition was skipped
+        assertEquals(SessionStatus.DISCONNECTED, spyApp.getStatus(sessionID));
+
+        // verify session.setNextSenderMsgSeqNum was called with 3
+        verify(mockSession).setNextSenderMsgSeqNum(3);
+
+        // verify sessionManager.stopSessionByIds was NOT called
+        verify(sessionManager, never()).stopSessionByIds(anyString(), anyString());
     }
 }

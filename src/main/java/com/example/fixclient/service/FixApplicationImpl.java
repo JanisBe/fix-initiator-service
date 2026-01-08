@@ -15,12 +15,16 @@ import quickfix.field.Text;
 import java.time.LocalDateTime;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
+import quickfix.Session;
 
 @Service
 @Slf4j
 public class FixApplicationImpl implements Application {
 
     private static final int CERT_FIELD = 9479;
+    private static final Pattern SEQ_NUM_EXPECTED_PATTERN = Pattern.compile("expected \\[(\\d+)\\]");
 
     private final CertificateService certificateService;
     private final SimpMessageSendingOperations messagingTemplate;
@@ -106,6 +110,10 @@ public class FixApplicationImpl implements Application {
 
         log.warn("Received Logout from acceptor for session {}: {}", sessionID, reason);
 
+        if (tryHandlingSeqNumMismatch(sessionID, reason)) {
+            return;
+        }
+
         SessionStatus currentStatus = sessionStatuses.get(sessionID);
         // If session was never connected, this is a logon rejection
         if (currentStatus != SessionStatus.CONNECTED) {
@@ -145,6 +153,38 @@ public class FixApplicationImpl implements Application {
         } else {
             log.warn("Failed to sign message for session {}", sessionID);
         }
+    }
+
+    private boolean tryHandlingSeqNumMismatch(SessionID sessionID, String reason) {
+        if (reason.contains("sequence number") && reason.contains("less than the one we expected")) {
+            Matcher matcher = SEQ_NUM_EXPECTED_PATTERN.matcher(reason);
+            if (matcher.find()) {
+                try {
+                    int expectedSeqNum = Integer.parseInt(matcher.group(1));
+                    log.info(
+                            "Detected sequence number mismatch for {}. Acceptor expects {}. Updating local session state.",
+                            sessionID, expectedSeqNum);
+
+                    Session session = getSession(sessionID);
+                    if (session != null) {
+                        session.setNextSenderMsgSeqNum(expectedSeqNum);
+                        log.info("Updated next sender sequence number for {} to {}", sessionID, expectedSeqNum);
+                        // We return true so that handleLogoutMessage returns early and doesn't stop the
+                        // initiator
+                        return true;
+                    } else {
+                        log.warn("Could not find session {} to update sequence number", sessionID);
+                    }
+                } catch (Exception e) {
+                    log.error("Failed to update sequence number after mismatch detection", e);
+                }
+            }
+        }
+        return false;
+    }
+
+    protected Session getSession(SessionID sessionID) {
+        return Session.lookupSession(sessionID);
     }
 
     @Override
