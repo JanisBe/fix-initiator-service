@@ -19,13 +19,15 @@ public class FixWebSocketController {
     private final BatchMessageSenderService batchSender;
 
     @MessageMapping("/startInitiator")
-    public void startSession(@Payload StartSessionRequest request, SimpMessageHeaderAccessor headerAccessor) throws Exception {
+    public void startSession(@Payload StartSessionRequest request, SimpMessageHeaderAccessor headerAccessor)
+            throws Exception {
         String wsSessionId = headerAccessor.getSessionId();
         sessionManager.startSession(request.senderCompId(), request.targetCompId(), request.environment(), wsSessionId);
     }
 
     @MessageMapping("/stopInitiator")
     public void stopSession(@Payload StartSessionRequest request) {
+        batchSender.stopSending();
         sessionManager.stopSession(request.senderCompId(), request.targetCompId(), request.environment());
     }
 

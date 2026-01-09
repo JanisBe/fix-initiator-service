@@ -3,6 +3,7 @@ package com.example.fixclient.service;
 import com.example.fixclient.model.FixSessionKey;
 import com.example.fixclient.model.SessionStatus;
 import jakarta.annotation.PostConstruct;
+import jakarta.annotation.PreDestroy;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import quickfix.*;
@@ -19,7 +20,8 @@ public class FixSessionManager {
     private final DynamicSettingsBuilder settingsBuilder;
     private final Map<FixSessionKey, SocketInitiator> initiators = new ConcurrentHashMap<>();
 
-    // Maps WebSocket Session ID -> Set of FIX Session Keys started by that WS session
+    // Maps WebSocket Session ID -> Set of FIX Session Keys started by that WS
+    // session
     private final Map<String, Set<FixSessionKey>> wsToFixSessions = new ConcurrentHashMap<>();
 
     // Maps FIX Session ID -> WebSocket Session ID (owner)
@@ -37,6 +39,12 @@ public class FixSessionManager {
         application.setSessionManager(this);
     }
 
+    @PreDestroy
+    public void shutdown() {
+        log.info("Spring context is shutting down, stopping all FIX sessions...");
+        initiators.keySet().forEach(this::stopSessionByKey);
+    }
+
     public void startSession(String sender, String target, String env, String wsSessionId) throws ConfigError {
         FixSessionKey key = new FixSessionKey(sender, target, env);
         if (initiators.containsKey(key)) {
@@ -52,7 +60,8 @@ public class FixSessionManager {
         LogFactory logFactory = new ScreenLogFactory(settings);
         MessageFactory messageFactory = new DefaultMessageFactory();
 
-        SocketInitiator initiator = new SocketInitiator(application, storeFactory, settings, logFactory, messageFactory);
+        SocketInitiator initiator = new SocketInitiator(application, storeFactory, settings, logFactory,
+                messageFactory);
         initiator.start();
 
         initiators.put(key, initiator);
@@ -70,12 +79,13 @@ public class FixSessionManager {
     private void stopSessionByKey(FixSessionKey key) {
         SocketInitiator initiator = initiators.remove(key);
         if (initiator != null) {
-            initiator.stop();
-            log.info("Stopped session for {}", key);
+            initiator.stop(true);
+            log.info("Stopped session for {} (forced)", key);
 
             // Remove from ownership and reverse maps
-            // Note: This is a bit expensive to reverse-lookup from wsToFixSessions if we don't know the WS ID,
-            // but usually we stop by WS ID or we can cleanup lazily. 
+            // Note: This is a bit expensive to reverse-lookup from wsToFixSessions if we
+            // don't know the WS ID,
+            // but usually we stop by WS ID or we can cleanup lazily.
             // Better to cleanup strictly.
 
             SessionID sessionId = new SessionID("FIX.4.1", key.senderCompId(), key.targetCompId());
@@ -101,15 +111,16 @@ public class FixSessionManager {
         if (ownedSessions != null) {
             log.info("Stopping all sessions for WS Owner: {}", wsSessionId);
             for (FixSessionKey key : ownedSessions) {
-                // We call the internal stop that also cleans up maps, 
-                // but we already removed the set from wsToFixSessions to prevent concurrent modification issues 
+                // We call the internal stop that also cleans up maps,
+                // but we already removed the set from wsToFixSessions to prevent concurrent
+                // modification issues
                 // if we iterated directly. However, we need to be careful.
                 // The efficient way is to just stop the initiators and remove from maps.
 
                 SocketInitiator initiator = initiators.remove(key);
                 if (initiator != null) {
-                    initiator.stop();
-                    log.info("Stopped session {}", key);
+                    initiator.stop(true);
+                    log.info("Stopped session {} (forced)", key);
                 }
 
                 SessionID sessionId = new SessionID("FIX.4.1", key.senderCompId(), key.targetCompId());

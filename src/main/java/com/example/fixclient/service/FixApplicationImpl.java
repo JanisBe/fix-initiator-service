@@ -9,6 +9,7 @@ import quickfix.Application;
 import quickfix.FieldNotFound;
 import quickfix.Message;
 import quickfix.SessionID;
+import quickfix.field.MsgSeqNum;
 import quickfix.field.MsgType;
 import quickfix.field.Text;
 
@@ -66,7 +67,13 @@ public class FixApplicationImpl implements Application {
     @Override
     public void toAdmin(Message message, SessionID sessionID) {
         try {
-            String msgType = message.getHeader().getString(MsgType.FIELD);
+            String msgType = message.getHeader().isSetField(MsgType.FIELD)
+                    ? message.getHeader().getString(MsgType.FIELD)
+                    : "UNKNOWN";
+            int seqNum = message.getHeader().isSetField(MsgSeqNum.FIELD) ? message.getHeader().getInt(MsgSeqNum.FIELD)
+                    : -1;
+            log.info("[INITIATOR][toAdmin] MsgType: {}, MsgSeqNum: {}", msgType, seqNum);
+
             if (MsgType.LOGON.equals(msgType)) {
                 String senderCompId = sessionID.getSenderCompID();
                 String certBase64 = certificateService.getCertificateBase64(senderCompId);
@@ -85,7 +92,14 @@ public class FixApplicationImpl implements Application {
     @Override
     public void fromAdmin(Message message, SessionID sessionID) {
         try {
-            String msgType = message.getHeader().getString(MsgType.FIELD);
+            String msgType = message.getHeader().isSetField(MsgType.FIELD)
+                    ? message.getHeader().getString(MsgType.FIELD)
+                    : "UNKNOWN";
+            int seqNum = message.getHeader().isSetField(MsgSeqNum.FIELD) ? message.getHeader().getInt(MsgSeqNum.FIELD)
+                    : -1;
+            log.info("[INITIATOR][fromAdmin] MsgType: {}, MsgSeqNum: {}", msgType, seqNum);
+            log.debug("[INITIATOR][fromAdmin] Full message: {}", message);
+
             if (MsgType.LOGOUT.equals(msgType)) {
                 handleLogoutMessage(message, sessionID);
             }
@@ -178,6 +192,21 @@ public class FixApplicationImpl implements Application {
                 } catch (Exception e) {
                     log.error("Failed to update sequence number after mismatch detection", e);
                 }
+            }
+        } else if (reason.contains("expecting a new session") && reason.contains("sequence number 1")) {
+            log.info("Detected 'expecting a new session' for {}. Resetting sequence numbers to 1.", sessionID);
+            try {
+                Session session = getSession(sessionID);
+                if (session != null) {
+                    session.setNextSenderMsgSeqNum(1);
+                    session.setNextTargetMsgSeqNum(1);
+                    log.info("Reset sequence numbers for {} to 1", sessionID);
+                    return true;
+                } else {
+                    log.warn("Could not find session {} to reset sequence numbers", sessionID);
+                }
+            } catch (Exception e) {
+                log.error("Failed to reset sequence numbers after mismatch detection", e);
             }
         }
         return false;

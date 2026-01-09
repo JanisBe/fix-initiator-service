@@ -211,4 +211,30 @@ class FixApplicationImplTest {
         // verify sessionManager.stopSessionByIds was NOT called
         verify(sessionManager, never()).stopSessionByIds(anyString(), anyString());
     }
+
+    @Test
+    void testFromAdmin_HandlesNewSessionExpected() throws FieldNotFound, IOException {
+        // Arrange
+        Message message = new Message();
+        message.getHeader().setString(MsgType.FIELD, MsgType.LOGOUT);
+        String reason = "You have tried to log on with a sequence number [37] when EMX is expecting a new session. Please log on with sequence number 1. You are being logged out.";
+        message.setString(Text.FIELD, reason);
+
+        // Use a spy to mock getSession()
+        FixApplicationImpl spyApp = spy(fixApplication);
+        Session mockSession = mock(Session.class);
+        doReturn(mockSession).when(spyApp).getSession(sessionID);
+
+        // Act
+        spyApp.fromAdmin(message, sessionID);
+
+        // Assert
+        // verify session.setNextSenderMsgSeqNum was called with 1
+        verify(mockSession).setNextSenderMsgSeqNum(1);
+        // verify session.setNextTargetMsgSeqNum was called with 1
+        verify(mockSession).setNextTargetMsgSeqNum(1);
+
+        // verify sessionManager.stopSessionByIds was NOT called
+        verify(sessionManager, never()).stopSessionByIds(anyString(), anyString());
+    }
 }
